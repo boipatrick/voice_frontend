@@ -3,7 +3,7 @@
 	import FilterPill from '$lib/components/FilterPill.svelte';
 	import HistoryItem from '$lib/components/HistoryItem.svelte';
 	import { onMount } from 'svelte';
-	import { getTranscription } from '$lib/services/api';
+	import { getAllTranscriptions } from '$lib/services/api';
 
 	interface Transcription {
 		id: string;
@@ -18,7 +18,7 @@
 
 	onMount(async () => {
 		try {
-			transcriptions = await getTranscription('');
+			transcriptions = await getAllTranscriptions();
 			isLoading = false;
 		} catch (err) {
 			error = 'Failed to load transcription history';
