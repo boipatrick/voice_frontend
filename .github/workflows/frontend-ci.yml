@@ -8,7 +8,7 @@ on:
       - 'package.json'
       - 'svelte.config.js'
   pull_request:
-    branches: [ master]
+    branches: [ main ]
     paths:
       - 'src/**'
       - 'package.json'
