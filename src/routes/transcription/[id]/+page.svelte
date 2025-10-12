@@ -1,36 +1,36 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
+	import { getTranscription } from '$lib/services/api';
 	import { goto } from '$app/navigation';
 
+	interface TranscriptionItem {
+		timestamp: string;
+		text: string;
+	}
+
+	interface Transcription {
+		summary: string;
+		transcript: TranscriptionItem[];
+	}
+
 	const transcriptionId = $derived($page.params.id);
+	let transcription: Transcription | null = $state(null);
+	let isLoading = $state(true);
+	let error: string | null = $state(null);
 
-	// Mock data
-	const summary = "This meeting discussed the new product launch strategy, focusing on marketing channels and target audience. Key action items included finalizing the budget and scheduling a follow-up meeting.";
-
-	const transcriptionItems = [
-		{
-			timestamp: "00:01",
-			text: "Welcome, everyone. Today, we'll discuss the launch strategy for our new product."
-		},
-		{
-			timestamp: "00:07",
-			text: "Our primary marketing channels will be social media and email campaigns. We're targeting young professionals aged 25-35."
-		},
-		{
-			timestamp: "00:15",
-			text: "The budget needs finalization by next week. Let's schedule a follow-up meeting to review progress."
+	onMount(async () => {
+		try {
+			if (!transcriptionId) {
+				throw new Error('No transcription ID provided');
+			}
+			transcription = await getTranscription(transcriptionId);
+			isLoading = false;
+		} catch (err) {
+			error = 'Failed to load transcription';
+			isLoading = false;
 		}
-		,
-		{
-			timestamp: "00:23",
-			text: "We should also consider partnerships with influencers to maximize our reach."
-		},
-		{
-			timestamp: "00:31",
-			text: "Before we wrap up, let's go through the timeline for the next quarter."
-		}
-		/* More items can be added here */
-	];
+	});
 
 	const goBack = () => {
 		goto('/history');
@@ -41,13 +41,14 @@
 	};
 
 	const handleShare = () => {
+		if (!transcription) return;
 		if (navigator.share) {
 			navigator.share({
 				title: 'Transcription',
-				text: summary
+				text: transcription.summary
 			});
 		} else {
-			navigator.clipboard.writeText(summary);
+			navigator.clipboard.writeText(transcription.summary);
 			alert('Copied to clipboard!');
 		}
 	};
@@ -81,26 +82,28 @@
 	</header>
 
 	<main class="main-content">
-		<div class="container">
-			<section class="section">
-				<h3>Summary</h3>
-				<div class="summary-card">
-					<p>{summary}</p>
-				</div>
-			</section>
-
-			<section class="section">
-				<h3>Full Transcription</h3>
-				<div class="transcription-list">
-					{#each transcriptionItems as item}
-						<div class="transcription-item">
-							<span class="timestamp">{item.timestamp}</span>
-							<p class="text">{item.text}</p>
-						</div>
-					{/each}
-				</div>
-			</section>
-		</div>
+		{#if isLoading}
+			<div class="loading">Loading transcription...</div>
+		{:else if error}
+			<div class="error">{error}</div>
+		{:else if transcription}
+			<!-- Display actual transcription data -->
+			<div class="summary">
+				<h2>Summary</h2>
+				<p>{transcription.summary}</p>
+			</div>
+			
+			<div class="full-transcript">
+				<h2>Full Transcript</h2>
+				<!-- Loop through transcription items -->
+				{#each transcription.transcript || [] as item}
+					<div class="transcript-item">
+						<div class="timestamp">{item.timestamp}</div>
+						<div class="text">{item.text}</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</main>
 
 	<nav class="bottom-nav">
@@ -183,17 +186,21 @@
 		padding: var(--spacing-xl) 0;
 	}
 
-	.section {
-		margin-bottom: var(--spacing-xl);
+	.loading {
+		text-align: center;
+		padding: var(--spacing-lg);
+		font-size: 18px;
+		color: var(--color-text-secondary);
 	}
 
-	.section h3 {
-		padding: 0 var(--spacing-lg);
-		margin-bottom: var(--spacing-md);
-		font-size: 24px;
+	.error {
+		color: var(--color-danger);
+		text-align: center;
+		padding: var(--spacing-lg);
+		font-size: 18px;
 	}
 
-	.summary-card {
+	.summary {
 		margin: 0 var(--spacing-lg);
 		padding: var(--spacing-lg);
 		background: var(--color-bg-card);
@@ -201,21 +208,29 @@
 		line-height: 1.6;
 	}
 
-	.summary-card p {
+	.summary h2 {
+		margin: 0 0 var(--spacing-md) 0;
+		font-size: 24px;
+	}
+
+	.summary p {
 		margin: 0;
 		color: var(--color-text-secondary);
 	}
 
-	.transcription-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-lg);
-		padding: 0 var(--spacing-lg);
+	.full-transcript {
+		margin: 0 var(--spacing-lg);
+		padding: var(--spacing-lg);
+		background: var(--color-bg-card);
+		border-radius: var(--radius-md);
+		line-height: 1.6;
 	}
 
-	.transcription-item {
+	.transcript-item {
 		display: flex;
 		gap: var(--spacing-md);
+		padding: var(--spacing-sm) 0;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
 	.timestamp {

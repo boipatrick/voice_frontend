@@ -1,10 +1,31 @@
 <script lang="ts">
 	import Button from '$lib/components/Button.svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { uploadAudio } from '$lib/services/api';
+	import DropZone from '$lib/components/DropZone.svelte';
+	
+	let isUploading = false;
+	let errorMessage = '';
 	
 	function handleGoogleAuth() {
 		
 		goto('/upload');
+	}
+	
+	async function handleFileUpload(file: File) {
+		isUploading = true;
+		errorMessage = '';
+		
+		try {
+			const result = await uploadAudio(file);
+			goto(`/transcribing/${result.id}`);
+		} catch (error) {
+			console.error('Upload failed:', error);
+			errorMessage = 'Failed to upload file. Please try again.';
+		} finally {
+			isUploading = false;
+		}
 	}
 </script>
 
@@ -42,6 +63,22 @@
 		</p>
 	</div>
 </div>
+
+{#if $page.url.pathname === '/upload'}
+	<div class="upload-page">
+		<h1>Upload Audio</h1>
+		
+		<DropZone onFileSelect={handleFileUpload} />
+		
+		{#if isUploading}
+			<div class="loading">Uploading...</div>
+		{/if}
+		
+		{#if errorMessage}
+			<div class="error">{errorMessage}</div>
+		{/if}
+	</div>
+{/if}
 
 <style>
 	.welcome-page {
@@ -120,6 +157,23 @@
 	.google-icon {
 		width: 18px;
 		height: 18px;
+	}
+
+	.upload-page {
+		padding: var(--spacing-xl) var(--spacing-lg);
+		text-align: center;
+	}
+
+	.loading {
+		margin-top: var(--spacing-md);
+		font-size: 16px;
+		color: var(--color-primary);
+	}
+
+	.error {
+		margin-top: var(--spacing-md);
+		font-size: 16px;
+		color: var(--color-danger);
 	}
 
 	@media (max-width: 480px) {

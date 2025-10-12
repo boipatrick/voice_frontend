@@ -2,35 +2,32 @@
 	import BottomNav from '$lib/components/BottomNav.svelte';
 	import FilterPill from '$lib/components/FilterPill.svelte';
 	import HistoryItem from '$lib/components/HistoryItem.svelte';
+	import { onMount } from 'svelte';
+	import { getAllTranscriptions } from '$lib/services/api';
 
+	interface Transcription {
+		id: string;
+		title: string;
+		timestamp: string;
+	}
+	let transcriptions = $state<Transcription[]>([]);
+	let isLoading = $state(true);
+	let error = $state<string | null>(null);
 	let searchQuery = $state('');
 	let activeFilter = $state('all');
 
-	const historyItems = [
-		{
-			id: '1',
-			title: 'Meeting Notes',
-			timestamp: 'Uploaded 2 days ago'
-		},
-		{
-			id: '2',
-			title: 'Interview Transcript',
-			timestamp: 'Uploaded 3 days ago'
-		},
-		{
-			id: '3',
-			title: 'Lecture Summary',
-			timestamp: 'Uploaded 1 week ago'
-		},
-		{
-			id: '4',
-			title: 'Podcast Transcription',
-			timestamp: 'Uploaded 2 weeks ago'
+	onMount(async () => {
+		try {
+			transcriptions = await getAllTranscriptions();
+			isLoading = false;
+		} catch (err) {
+			error = 'Failed to load transcription history';
+			isLoading = false;
 		}
-	];
+	});
 
 	const filteredItems = $derived(
-		historyItems.filter(item =>
+		transcriptions.filter(item =>
 			item.title.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
@@ -73,15 +70,23 @@
 				</FilterPill>
 			</div>
 
-			<div class="history-list">
-				{#each filteredItems as item (item.id)}
-					<HistoryItem
-						title={item.title}
-						timestamp={item.timestamp}
-						href="/transcription/{item.id}"
-					/>
-				{/each}
-			</div>
+			{#if isLoading}
+				<div class="loading">Loading history...</div>
+			{:else if error}
+				<div class="error">{error}</div>
+			{:else if transcriptions.length === 0}
+				<div class="empty-state">No transcriptions yet</div>
+			{:else}
+				<div class="history-list">
+					{#each filteredItems as item (item.id)}
+						<HistoryItem
+							title={item.title}
+							timestamp={item.timestamp}
+							href="/transcription/{item.id}"
+						/>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</main>
 
@@ -180,5 +185,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--spacing-md);
+	}
+
+	.loading, .error, .empty-state {
+		text-align: center;
+		color: var(--color-text-secondary);
+		padding: var(--spacing-lg);
+		border-radius: var(--radius-md);
+		background: var(--color-bg-card);
+		margin-bottom: var(--spacing-lg);
 	}
 </style>
