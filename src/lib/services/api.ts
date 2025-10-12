@@ -2,6 +2,11 @@
 const API_URL = import.meta.env.VITE_API_URL || 'https://voicejournalapi-production-f73b.up.railway.app';
 
 /**
+ * This stores processed transcriptions in memory (will be lost on page refresh)
+ */
+const transcriptionCache = new Map();
+
+/**
  * Upload audio file for transcription
  */
 export async function uploadAudio(file: File) {
@@ -9,7 +14,8 @@ export async function uploadAudio(file: File) {
   formData.append('file', file);
   
   try {
-    const response = await fetch(`${API_URL}/transcribe`, {
+    // Changed endpoint to match your actual backend
+    const response = await fetch(`${API_URL}/upload-audio`, {
       method: 'POST',
       body: formData,
       credentials: 'include',
@@ -19,7 +25,7 @@ export async function uploadAudio(file: File) {
       throw new Error(`Upload failed with status: ${response.status}`);
     }
     
-    return await response.json();
+    return await response.json(); // Should return file_id
   } catch (error) {
     console.error('Audio upload error:', error);
     throw error;
@@ -27,41 +33,59 @@ export async function uploadAudio(file: File) {
 }
 
 /**
- * Get transcription by ID
+ * Process transcription by ID
  */
-export async function getTranscription(id: string) {
+export async function processTranscription(fileId: string, prompt?: string) {
   try {
-    const response = await fetch(`${API_URL}/transcription/${id}`, {
+    // Using your actual process-transcript endpoint
+    const response = await fetch(`${API_URL}/process-transcript/${fileId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prompt: prompt || "Summarize this transcript" }),
       credentials: 'include',
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to get transcription: ${response.status}`);
+      throw new Error(`Processing failed: ${response.status}`);
     }
     
-    return await response.json();
+    const result = await response.json();
+    // Store in cache
+    transcriptionCache.set(fileId, result);
+    return result;
   } catch (error) {
-    console.error(`Error fetching transcription ${id}:`, error);
+    console.error('Processing error:', error);
     throw error;
   }
 }
 
 /**
- * Get all transcriptions
+ * Get transcription (from cache or download)
  */
-export async function getAllTranscriptions() {
+export async function getTranscription(fileId: string) {
+  // Check cache first
+  if (transcriptionCache.has(fileId)) {
+    return transcriptionCache.get(fileId);
+  }
+  
+  // Otherwise try to download and process
   try {
-    const response = await fetch(`${API_URL}/transcriptions`, {
-      credentials: 'include',
-    });
+    // Try to get processed file
+    const response = await fetch(`${API_URL}/download-processed/${fileId}`);
     
     if (!response.ok) {
-      throw new Error(`Failed to get transcriptions: ${response.status}`);
+      // If not found, we might need to process it first
+      return await processTranscription(fileId);
     }
     
-    return await response.json();
+    // Parse result
+    const result = await response.json();
+    transcriptionCache.set(fileId, result);
+    return result;
   } catch (error) {
-    console.error('Error fetching all transcriptions:', error);
+    console.error(`Error fetching transcription ${fileId}:`, error);
     throw error;
   }
 }
