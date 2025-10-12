@@ -1,0 +1,48 @@
+name: Check Dependencies
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Run weekly on Mondays
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+          
+      - name: Check for outdated dependencies
+        run: npm outdated || true
+        
+      - name: Run npm audit
+        run: npm audit || true
+        
+      - name: Generate dependency report
+        run: |
+          echo "## Dependency Report" > dependency-report.md
+          echo "### Outdated packages" >> dependency-report.md
+          npm outdated --json || echo "{}" | tee outdated.json
+          cat outdated.json | jq -r 'to_entries | .[] | "- \(.key): \(.value.current) → \(.value.latest)"' >> dependency-report.md || echo "- None found" >> dependency-report.md
+          
+      - name: Create Issue on Security Vulnerabilities
+        if: ${{ failure() }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const fs = require('fs');
+            const reportContent = fs.readFileSync('dependency-report.md', 'utf8');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Dependency Update Required',
+              body: reportContent
+            });
