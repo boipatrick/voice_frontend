@@ -2,13 +2,13 @@ name: Frontend CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
     paths:
       - 'src/**'
       - 'package.json'
       - 'svelte.config.js'
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
     paths:
       - 'src/**'
       - 'package.json'
