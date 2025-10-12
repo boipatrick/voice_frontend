@@ -20,6 +20,16 @@
 			timestamp: "00:15",
 			text: "The budget needs finalization by next week. Let's schedule a follow-up meeting to review progress."
 		}
+		,
+		{
+			timestamp: "00:23",
+			text: "We should also consider partnerships with influencers to maximize our reach."
+		},
+		{
+			timestamp: "00:31",
+			text: "Before we wrap up, let's go through the timeline for the next quarter."
+		}
+		/* More items can be added here */
 	];
 
 	const goBack = () => {
