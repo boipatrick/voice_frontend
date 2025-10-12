@@ -89,3 +89,42 @@ export async function getTranscription(fileId: string) {
     throw error;
   }
 }
+
+/**
+ * Get all transcriptions (mock implementation)
+ * Since your backend doesn't have a /transcriptions endpoint,
+ * this returns mock data until you implement the endpoint
+ */
+export async function getAllTranscriptions() {
+  try {
+    // OPTION 1: Return mock data for now
+    return [
+      {
+        id: "example-id-1",
+        title: "Sample Transcription 1",
+        created_at: new Date().toISOString(),
+        duration: "2:45"
+      },
+      {
+        id: "example-id-2",
+        title: "Sample Transcription 2",
+        created_at: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+        duration: "1:30"
+      }
+    ];
+    
+    // OPTION 2: If your backend has this endpoint, uncomment:
+    /*
+    const response = await fetch(`${API_URL}/list-transcriptions`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get transcriptions: ${response.status}`);
+    }
+    
+    return await response.json();
+    */
+  } catch (error) {
+    console.error('Error fetching all transcriptions:', error);
+    throw error;
+  }
+}
