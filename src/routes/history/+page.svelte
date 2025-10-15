@@ -3,7 +3,7 @@
 	import FilterPill from '$lib/components/FilterPill.svelte';
 	import HistoryItem from '$lib/components/HistoryItem.svelte';
 	import { onMount } from 'svelte';
-	import { getAllTranscriptions } from '$lib/services/api';
+	import { getAllTranscriptions, deleteTranscription } from '$lib/services/api';
 
 	interface Transcription {
 		id: string;
@@ -31,6 +31,42 @@
 			item.title.toLowerCase().includes(searchQuery.toLowerCase())
 		)
 	);
+
+	interface Props {
+		id: string;
+		title: string;
+		timestamp: string;
+		href: string;
+		onDelete?: () => void;
+	}
+
+	let { id, title, timestamp, href, onDelete }: Props = $props();
+	let isDeleting = $state(false);
+
+	const handleDelete = async (e: MouseEvent) => {
+		e.preventDefault(); // Prevent navigation
+		e.stopPropagation();
+
+		// Confirm deletion
+		if (!confirm(`Delete "${title}"?\n\nThis action cannot be undone.`)) {
+			return;
+		}
+
+		isDeleting = true;
+
+		try {
+			await deleteTranscription(id);
+			
+			// Call parent's onDelete callback to refresh list
+			if (onDelete) {
+				onDelete();
+			}
+		} catch (error) {
+			console.error('Delete failed:', error);
+			alert('Failed to delete transcription. Please try again.');
+			isDeleting = false;
+		}
+	};
 </script>
 
 <div class="history-page">
@@ -80,6 +116,7 @@
 				<div class="history-list">
 					{#each filteredItems as item (item.id)}
 						<HistoryItem
+							id={item.id}
 							title={item.title}
 							timestamp={item.timestamp}
 							href="/transcription/{item.id}"
@@ -194,5 +231,9 @@
 		border-radius: var(--radius-md);
 		background: var(--color-bg-card);
 		margin-bottom: var(--spacing-lg);
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
 	}
 </style>

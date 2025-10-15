@@ -1,9 +1,6 @@
-// src/lib/services/api.ts
-const API_URL = import.meta.env.VITE_API_URL || 'https://voicejournalapi-production-f73b.up.railway.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://voicejournalapi-production.up.railway.app';
 
-/**
- * This stores processed transcriptions in memory (will be lost on page refresh)
- */
+// Transcription cache to improve performance
 const transcriptionCache = new Map();
 
 /**
@@ -14,7 +11,6 @@ export async function uploadAudio(file: File) {
   formData.append('file', file);
   
   try {
-    // Changed endpoint to match your actual backend
     const response = await fetch(`${API_URL}/upload-audio`, {
       method: 'POST',
       body: formData,
@@ -25,7 +21,7 @@ export async function uploadAudio(file: File) {
       throw new Error(`Upload failed with status: ${response.status}`);
     }
     
-    return await response.json(); // Should return file_id
+    return await response.json(); // Returns file_id, filename, message
   } catch (error) {
     console.error('Audio upload error:', error);
     throw error;
@@ -33,18 +29,22 @@ export async function uploadAudio(file: File) {
 }
 
 /**
- * Process transcription by ID
+ * Process transcription - FIXED to match backend signature
  */
-export async function processTranscription(fileId: string, prompt?: string) {
+export async function processTranscription(fileId: string, prompt?: string, title?: string) {
   try {
-    // Using your actual process-transcript endpoint
-    const response = await fetch(`${API_URL}/process-transcript/${fileId}`, {
+    // Backend expects title and prompt as query parameters
+    let url = `${API_URL}/process-transcript/${fileId}`;
+    const params = new URLSearchParams();
+    
+    if (prompt) params.append('prompt', prompt);
+    if (title) params.append('title', title);
+    
+    const queryString = params.toString();
+    if (queryString) url += `?${queryString}`;
+    
+    const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ prompt: prompt || "Summarize this transcript" }),
-      credentials: 'include',
     });
     
     if (!response.ok) {
@@ -52,7 +52,6 @@ export async function processTranscription(fileId: string, prompt?: string) {
     }
     
     const result = await response.json();
-    // Store in cache
     transcriptionCache.set(fileId, result);
     return result;
   } catch (error) {
@@ -62,7 +61,7 @@ export async function processTranscription(fileId: string, prompt?: string) {
 }
 
 /**
- * Get transcription (from cache or download)
+ * Get transcription - FIXED endpoint name
  */
 export async function getTranscription(fileId: string) {
   // Check cache first
@@ -70,20 +69,30 @@ export async function getTranscription(fileId: string) {
     return transcriptionCache.get(fileId);
   }
   
-  // Otherwise try to download and process
   try {
-    // Try to get processed file
-    const response = await fetch(`${API_URL}/download-processed/${fileId}`);
-    
+    const response = await fetch(`${API_URL}/transcription/${fileId}`);
     if (!response.ok) {
-      // If not found, we might need to process it first
-      return await processTranscription(fileId);
+      throw new Error(`Failed to get transcription: ${response.status}`);
     }
     
-    // Parse result
     const result = await response.json();
-    transcriptionCache.set(fileId, result);
-    return result;
+    console.log('Raw backend response:', result);
+    
+    // Map backend fields to frontend expectations
+    const mappedResult = {
+      id: result.file_id || result.id,
+      title: result.title || 'Untitled',
+      summary: result.analysis || result.summary || '',  // Map analysis → summary
+      transcript: result.transcript 
+        ? (Array.isArray(result.transcript) 
+            ? result.transcript 
+            : [{ timestamp: '00:00', text: result.transcript }])  // Convert string → array
+        : []
+    };
+    
+    console.log('Mapped result:', mappedResult);
+    transcriptionCache.set(fileId, mappedResult);
+    return mappedResult;
   } catch (error) {
     console.error(`Error fetching transcription ${fileId}:`, error);
     throw error;
@@ -91,22 +100,53 @@ export async function getTranscription(fileId: string) {
 }
 
 /**
- * Get all transcriptions 
+ * Get all transcriptions - FIXED endpoint name
  */
 export async function getAllTranscriptions() {
   try {
-    // Return empty array or mock data for now
-    // Later replace with actual API call when backend endpoint is available
-    return [];
-    
-    // When backend endpoint is ready:
-    // const response = await fetch(`${API_URL}/list-transcriptions`);
-    // if (!response.ok) {
-    //   throw new Error(`Failed to get transcriptions: ${response.status}`);
-    // }
-    // return await response.json();
+    const response = await fetch(`${API_URL}/transcriptions`); // ← Fixed
+    if (!response.ok) {
+      throw new Error(`Failed to get transcriptions: ${response.status}`);
+    }
+    return await response.json();
   } catch (error) {
     console.error('Error fetching all transcriptions:', error);
     return []; // Return empty array on error to avoid breaking the UI
+  }
+}
+
+/**
+ * Get audio URL for a transcription
+ */
+export function getAudioUrl(fileId: string) {
+  return `${API_URL}/audio/${fileId}`;
+}
+
+/**
+ * Get URL for downloading summary text file
+ */
+export function getSummaryDownloadUrl(fileId: string) {
+  return `${API_URL}/download-processed/${fileId}`;
+}
+
+/**
+ * Delete transcription - FIXED endpoint name
+ */
+export async function deleteTranscription(fileId: string) {
+  try {
+    const response = await fetch(`${API_URL}/transcription/${fileId}`, { // ← Fixed
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Delete failed with status: ${response.status}`);
+    }
+    
+    // Remove from cache if exists
+    transcriptionCache.delete(fileId);
+    return await response.json();
+  } catch (error) {
+    console.error('Delete error:', error);
+    throw error;
   }
 }
