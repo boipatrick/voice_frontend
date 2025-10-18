@@ -1,0 +1,82 @@
+name: API Health Check
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' # Every 30 minutes
+  workflow_dispatch: # Manual trigger
+  push:
+    branches: [main]
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check Backend Health
+        run: |
+          echo "🏥 Checking backend health..."
+          BACKEND_URL="https://voicejournalapi-production-f73b.up.railway.app"
+          
+          # Check if backend is reachable
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BACKEND_URL)
+          
+          if [ $HTTP_STATUS -eq 200 ]; then
+            echo "✅ Backend is healthy (Status: $HTTP_STATUS)"
+          else
+            echo "❌ Backend returned status: $HTTP_STATUS"
+            exit 1
+          fi
+          
+      - name: Check Upload Endpoint
+        run: |
+          echo "📤 Checking upload endpoint..."
+          UPLOAD_URL="https://voicejournalapi-production-f73b.up.railway.app/upload-audio"
+          
+          # Check if endpoint exists (should return 405 or 422, not 404)
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $UPLOAD_URL)
+          
+          if [ $HTTP_STATUS -eq 404 ]; then
+            echo "❌ Upload endpoint not found (404)"
+            exit 1
+          else
+            echo "✅ Upload endpoint exists (Status: $HTTP_STATUS)"
+          fi
+          
+      - name: Check Frontend-Backend Connection
+        run: |
+          echo "🔗 Testing frontend can reach backend..."
+          FRONTEND_URL="https://voice-frontend-nine.vercel.app"
+          
+          # Check if frontend is up
+          curl -f $FRONTEND_URL || exit 1
+          echo "✅ Frontend is accessible"
+          
+      - name: Create Issue on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 API Health Check Failed',
+              body: `## Health Check Failed
+              
+              **Time**: ${new Date().toISOString()}
+              **Workflow Run**: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+              
+              ### Possible Issues:
+              - Backend (Railway) might be down
+              - Upload endpoint might be misconfigured
+              - CORS issues between frontend and backend
+              - Environment variables not set correctly
+              
+              ### Action Required:
+              1. Check Railway deployment logs
+              2. Verify backend endpoints are working
+              3. Check Vercel environment variables
+              4. Test manually: https://voicejournalapi-production-f73b.up.railway.app
+              `,
+              labels: ['bug', 'api', 'urgent']
+            });

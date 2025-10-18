@@ -1,4 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://voicejournalapi-production.up.railway.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://voicejournalapi-production-f73b.up.railway.app';
+
+// Debug: Log the API URL on load
+console.log('🔗 API_URL configured as:', API_URL);
 
 // Transcription cache to improve performance
 const transcriptionCache = new Map();
@@ -10,20 +13,28 @@ export async function uploadAudio(file: File) {
   const formData = new FormData();
   formData.append('file', file);
   
+  const uploadUrl = `${API_URL}/upload-audio`;
+  console.log('📤 Uploading to:', uploadUrl);
+  
   try {
-    const response = await fetch(`${API_URL}/upload-audio`, {
+    const response = await fetch(uploadUrl, {
       method: 'POST',
       body: formData,
-      credentials: 'include',
     });
     
+    console.log('✅ Upload response status:', response.status);
+    
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Upload error response:', errorText);
       throw new Error(`Upload failed with status: ${response.status}`);
     }
     
-    return await response.json(); // Returns file_id, filename, message
+    const result = await response.json();
+    console.log('📦 Upload result:', result);
+    return result;
   } catch (error) {
-    console.error('Audio upload error:', error);
+    console.error('💥 Audio upload error:', error);
     throw error;
   }
 }
