@@ -1,7 +1,10 @@
 const API_URL = import.meta.env.VITE_API_URL || 'https://voicejournalapi-production-f73b.up.railway.app';
 
+// Ensure URL always has protocol
+const normalizedApiUrl = API_URL.startsWith('http') ? API_URL : `https://${API_URL}`;
+
 // Debug: Log the API URL on load
-console.log('🔗 API_URL configured as:', API_URL);
+console.log('🔗 API_URL configured as:', normalizedApiUrl);
 
 // Transcription cache to improve performance
 const transcriptionCache = new Map();
@@ -13,7 +16,7 @@ export async function uploadAudio(file: File) {
   const formData = new FormData();
   formData.append('file', file);
   
-  const uploadUrl = `${API_URL}/upload-audio`;
+  const uploadUrl = `${normalizedApiUrl}/upload-audio`;
   console.log('📤 Uploading to:', uploadUrl);
   
   try {
@@ -45,7 +48,7 @@ export async function uploadAudio(file: File) {
 export async function processTranscription(fileId: string, prompt?: string, title?: string) {
   try {
     // Backend expects title and prompt as query parameters
-    let url = `${API_URL}/process-transcript/${fileId}`;
+    let url = `${normalizedApiUrl}/process-transcript/${fileId}`;
     const params = new URLSearchParams();
     
     if (prompt) params.append('prompt', prompt);
@@ -72,7 +75,7 @@ export async function processTranscription(fileId: string, prompt?: string, titl
 }
 
 /**
- * Get transcription - FIXED endpoint name
+ * Get transcription
  */
 export async function getTranscription(fileId: string) {
   // Check cache first
@@ -81,7 +84,7 @@ export async function getTranscription(fileId: string) {
   }
   
   try {
-    const response = await fetch(`${API_URL}/transcription/${fileId}`);
+    const response = await fetch(`${normalizedApiUrl}/transcription/${fileId}`);
     if (!response.ok) {
       throw new Error(`Failed to get transcription: ${response.status}`);
     }
@@ -93,11 +96,11 @@ export async function getTranscription(fileId: string) {
     const mappedResult = {
       id: result.file_id || result.id,
       title: result.title || 'Untitled',
-      summary: result.analysis || result.summary || '',  // Map analysis → summary
+      summary: result.analysis || result.summary || '',
       transcript: result.transcript 
         ? (Array.isArray(result.transcript) 
             ? result.transcript 
-            : [{ timestamp: '00:00', text: result.transcript }])  // Convert string → array
+            : [{ timestamp: '00:00', text: result.transcript }])
         : []
     };
     
@@ -111,18 +114,18 @@ export async function getTranscription(fileId: string) {
 }
 
 /**
- * Get all transcriptions - FIXED endpoint name
+ * Get all transcriptions
  */
 export async function getAllTranscriptions() {
   try {
-    const response = await fetch(`${API_URL}/transcriptions`); // ← Fixed
+    const response = await fetch(`${normalizedApiUrl}/transcriptions`);
     if (!response.ok) {
       throw new Error(`Failed to get transcriptions: ${response.status}`);
     }
     return await response.json();
   } catch (error) {
     console.error('Error fetching all transcriptions:', error);
-    return []; // Return empty array on error to avoid breaking the UI
+    return [];
   }
 }
 
@@ -130,22 +133,22 @@ export async function getAllTranscriptions() {
  * Get audio URL for a transcription
  */
 export function getAudioUrl(fileId: string) {
-  return `${API_URL}/audio/${fileId}`;
+  return `${normalizedApiUrl}/audio/${fileId}`;
 }
 
 /**
  * Get URL for downloading summary text file
  */
 export function getSummaryDownloadUrl(fileId: string) {
-  return `${API_URL}/download-processed/${fileId}`;
+  return `${normalizedApiUrl}/download-processed/${fileId}`;
 }
 
 /**
- * Delete transcription - FIXED endpoint name
+ * Delete transcription
  */
 export async function deleteTranscription(fileId: string) {
   try {
-    const response = await fetch(`${API_URL}/transcription/${fileId}`, { // ← Fixed
+    const response = await fetch(`${normalizedApiUrl}/transcription/${fileId}`, {
       method: 'DELETE',
     });
     
